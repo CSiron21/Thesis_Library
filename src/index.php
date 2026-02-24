@@ -7,15 +7,20 @@
     <meta name="description" content="Thesis Library – search, browse, and manage academic theses.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
+<canvas id="bg-canvas"></canvas>
+
 <!-- ===== Header ===== -->
 <header class="header">
     <div class="container header-inner">
-        <h1 class="logo"><span class="logo-icon">📚</span> Thesis Library</h1>
+        <h1 class="logo">
+            <img src="assets/soc-logo.png" alt="SOC Logo" class="logo-img"> 
+            <span class="logo-text">Thesis Library</span>
+        </h1>
         <button class="btn btn-primary" id="addBtn">+ Add Thesis</button>
     </div>
 </header>
@@ -82,53 +87,59 @@
 <!-- ===== Add / Edit Modal ===== -->
 <div id="formModal" class="modal hidden" role="dialog" aria-labelledby="modalTitle">
     <div class="modal-backdrop"></div>
-    <div class="modal-content">
+    <div class="modal-content modal-lg">
         <div class="modal-header">
             <h2 id="modalTitle">Add Thesis</h2>
             <button class="modal-close" aria-label="Close">&times;</button>
         </div>
         <form id="thesisForm" class="modal-body" enctype="multipart/form-data">
             <input type="hidden" id="thesisId">
-
-            <div class="form-group">
-                <label for="titleInput">Thesis Title <span class="required">*</span></label>
-                <input type="text" id="titleInput" required>
-            </div>
-            <div class="form-group">
-                <label for="abstractInput">Abstract <span class="required">*</span></label>
-                <textarea id="abstractInput" rows="5" required></textarea>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="yearInput">Year <span class="required">*</span></label>
-                    <input type="number" id="yearInput" min="1900" max="2099" required>
-                </div>
-                <div class="form-group">
-                    <label for="adviserInput">Thesis Adviser <span class="required">*</span></label>
-                    <input type="text" id="adviserInput" required>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="proponentsInput">Proponents <span class="required">*</span> <small>(one per line)</small></label>
-                <textarea id="proponentsInput" rows="3" required></textarea>
-            </div>
-            <div class="form-group">
-                <label for="panelistsInput">Panelists <span class="required">*</span> <small>(one per line)</small></label>
-                <textarea id="panelistsInput" rows="3" required></textarea>
-            </div>
-            <div class="form-group">
-                <label for="frontPageInput">Front Page Image</label>
-                <div class="file-upload-area" id="fileUploadArea">
-                    <input type="file" id="frontPageInput" accept="image/*" class="file-input">
-                    <div class="file-upload-label">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        <span>Click or drag to upload</span>
-                        <small>JPEG, PNG, WebP, GIF — Max 10 MB</small>
+            
+            <div class="form-grid">
+                <div class="form-col">
+                    <div class="form-group">
+                        <label for="titleInput">Thesis Title <span class="required">*</span></label>
+                        <input type="text" id="titleInput" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="abstractInput">Abstract <span class="required">*</span></label>
+                        <textarea id="abstractInput" rows="10" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="frontPageInput">Front Page Image</label>
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <input type="file" id="frontPageInput" accept="image/*" class="file-input">
+                            <div class="file-upload-label">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <span>Upload Image</span>
+                            </div>
+                        </div>
+                        <div id="imagePreview" class="image-preview hidden">
+                            <img id="previewImg" alt="Preview">
+                            <button type="button" class="remove-img-btn" id="removeImgBtn" title="Remove image">&times;</button>
+                        </div>
                     </div>
                 </div>
-                <div id="imagePreview" class="image-preview hidden">
-                    <img id="previewImg" alt="Preview">
-                    <button type="button" class="remove-img-btn" id="removeImgBtn" title="Remove image">&times;</button>
+
+                <div class="form-col">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="yearInput">Year <span class="required">*</span></label>
+                            <input type="number" id="yearInput" min="1900" max="2099" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="adviserInput">Thesis Adviser <span class="required">*</span></label>
+                            <input type="text" id="adviserInput" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="proponentsInput">Proponents <span class="required">*</span> <small>(one per line)</small></label>
+                        <textarea id="proponentsInput" rows="5" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="panelistsInput">Panelists <span class="required">*</span> <small>(one per line)</small></label>
+                        <textarea id="panelistsInput" rows="5" required></textarea>
+                    </div>
                 </div>
             </div>
 
@@ -178,6 +189,7 @@
 <!-- ===== Toast ===== -->
 <div id="toast" class="toast hidden"></div>
 
+<script src="js/background.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
