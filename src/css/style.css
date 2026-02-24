@@ -244,13 +244,12 @@ img {
     gap: 16px;
     max-width: 800px;
     margin: 0 auto;
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: #ffffff;
+    /* Fully opaque white */
     padding: 8px;
     border-radius: 20px;
     box-shadow: var(--shadow);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--border);
 }
 
 .search-bar {
@@ -303,10 +302,9 @@ img {
     margin: 16px auto 0;
     padding: 24px;
     max-width: 800px;
-    background: rgba(255, 255, 255, 0.4);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: #ffffff;
+    /* Fully opaque white */
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     animation: slideDown .3s ease-out;
@@ -332,8 +330,8 @@ img {
 .filter-group select {
     width: 100%;
     padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: #f9fafb;
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
     font-family: var(--font);
@@ -382,11 +380,12 @@ img {
 }
 
 .thesis-card {
-    background: rgba(255, 255, 255, 0.45);
+    background: #ffffff;
+    /* Fully opaque white */
     /* More transparent for liquid feel */
     backdrop-filter: blur(14px) saturate(180%);
     -webkit-backdrop-filter: blur(14px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
     transition: all var(--transition);
@@ -584,10 +583,9 @@ img {
     width: 100%;
     max-width: 560px;
     max-height: 90vh;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: #ffffff;
+    /* Fully opaque white */
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
     display: flex;
