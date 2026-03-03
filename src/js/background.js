@@ -8,13 +8,12 @@ class LavalampBackground {
         this.blobs = [];
         this.mouse = { x: null, y: null };
         this.config = {
-            blobCount: 8, // More blobs for more activity
+            blobCount: 3, // Reduced for a cleaner look
             colors: [
-                'rgba(128, 0, 0, 0.35)',  // HAU Maroon
-                'rgba(255, 215, 0, 0.25)', // HAU Gold
-                'rgba(160, 0, 0, 0.25)',   // Light Maroon
-                'rgba(100, 0, 0, 0.35)',   // Dark Maroon
-                'rgba(255, 230, 128, 0.2)' // Light Gold
+                'rgba(128, 0, 0, 0.08)',   // HAU Maroon, very faint
+                'rgba(255, 215, 0, 0.05)',  // HAU Gold, very faint
+                'rgba(160, 0, 0, 0.05)',    // Light Maroon, very faint
+                'rgba(100, 0, 0, 0.08)'    // Dark Maroon, very faint
             ]
         };
 
@@ -88,8 +87,7 @@ class LavalampBackground {
                 blob.x, blob.y, blob.radius
             );
             gradient.addColorStop(0, blob.color);
-            gradient.addColorStop(0.85, blob.color); // Solid until 85% of the radius
-            gradient.addColorStop(1, 'rgba(248, 250, 252, 0)'); // Sharp fade at the edge
+            gradient.addColorStop(1, 'rgba(248, 250, 252, 0)'); // Soft fade to the edge
 
             this.ctx.fillStyle = gradient;
             this.ctx.beginPath();
