@@ -39,6 +39,27 @@ try {
             PDO::ATTR_EMULATE_PREPARES => false
         ]
     );
+
+    /* Auto-create tables on first run for zero-config deployments */
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS theses (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(500) NOT NULL,
+            abstract TEXT NOT NULL,
+            front_page_data LONGBLOB DEFAULT NULL,
+            front_page_mime VARCHAR(50) DEFAULT NULL,
+            year YEAR NOT NULL,
+            proponents TEXT NOT NULL,
+            panelists TEXT NOT NULL,
+            thesis_adviser VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FULLTEXT INDEX ft_search (title, abstract),
+            INDEX idx_year (year),
+            INDEX idx_adviser (thesis_adviser)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ");
+
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database connection failed']);

@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  web:
+    image: csiron21/thesis_library:latest
+    ports:
+      - "8082:80"
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_NAME: thesis_library
+      DB_USER: root # Change this in production
+      DB_PASS: thesis_root_pass # Change this in production
+
+  db:
+    image: mysql:8.0
+    command: --max-allowed-packet=67108864
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: thesis_root_pass # Change this in production
+      MYSQL_DATABASE: thesis_library
+    volumes:
+      - thesis_db_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  thesis_db_data:

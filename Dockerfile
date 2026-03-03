@@ -9,4 +9,10 @@ RUN apt-get update && apt-get install -y default-mysql-client && rm -rf /var/lib
 RUN echo "upload_max_filesize=64M\npost_max_size=72M\nmemory_limit=256M\nmax_execution_time=300" \
     > /usr/local/etc/php/conf.d/uploads.ini
 
+# Copy application source code into the image for production
+COPY src/ /var/www/html/
+
+# Set proper permissions for the web server
+RUN chown -R www-data:www-data /var/www/html
+
 EXPOSE 80
