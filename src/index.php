@@ -1,8 +1,10 @@
+<?php require_once __DIR__ . '/config/db.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?= htmlspecialchars(csrfToken()) ?>">
     <title>Thesis Library</title>
     <meta name="description" content="Thesis Library – search, browse, and manage academic theses.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,11 +19,13 @@
 <!-- ===== Header ===== -->
 <header class="header">
     <div class="container header-inner">
-        <h1 class="logo">
-            <img src="assets/soc-logo.png" alt="SOC Logo" class="logo-img"> 
-            <span class="logo-text">Thesis Library</span>
-        </h1>
-        <button class="btn btn-primary" id="addBtn">+ Add Thesis</button>
+        <h1 class="logo"><span class="logo-icon">📚</span> Thesis Library</h1>
+        <div class="header-actions">
+            <button class="btn btn-outline btn-sm" id="backupBtn" title="Download database backup">⬇ Backup</button>
+            <button class="btn btn-outline btn-sm" id="restoreBtn" title="Restore database from backup">⬆ Restore</button>
+            <input type="file" id="restoreFileInput" accept=".sql" class="hidden">
+            <button class="btn btn-primary" id="addBtn">+ Add Thesis</button>
+        </div>
     </div>
 </header>
 
@@ -32,8 +36,8 @@
     <section class="search-section">
         <div class="search-row">
             <div class="search-bar">
-                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="searchInput" class="search-input" placeholder="Search by title or abstract…" autocomplete="off">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="searchInput" class="search-input" placeholder="Search by title or abstract…" autocomplete="off" aria-label="Search theses">
             </div>
             <button class="btn btn-outline" id="toggleFilters">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
@@ -99,7 +103,7 @@
                 <div class="form-col">
                     <div class="form-group">
                         <label for="titleInput">Thesis Title <span class="required">*</span></label>
-                        <input type="text" id="titleInput" required>
+                        <input type="text" id="titleInput" required maxlength="500">
                     </div>
                     <div class="form-group">
                         <label for="abstractInput">Abstract <span class="required">*</span></label>
@@ -129,7 +133,7 @@
                         </div>
                         <div class="form-group">
                             <label for="adviserInput">Thesis Adviser <span class="required">*</span></label>
-                            <input type="text" id="adviserInput" required>
+                            <input type="text" id="adviserInput" required maxlength="255">
                         </div>
                     </div>
                     <div class="form-group">

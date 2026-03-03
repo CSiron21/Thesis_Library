@@ -5,10 +5,19 @@ require_once __DIR__ . '/../config/db.php';
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? null;
 
+/* ===== CSRF validation on write operations ===== */
+if (in_array($method, ['POST', 'DELETE'])) {
+    validateCsrf();
+}
+
 try {
     switch ($method) {
         case 'GET':
-            if (isset($_GET['id'])) {
+            if ($action === 'image' && isset($_GET['id'])) {
+                serveImage($pdo, intval($_GET['id']));
+            } elseif ($action === 'csrf') {
+                respond(200, ['success' => true, 'data' => ['token' => csrfToken()]]);
+            } elseif (isset($_GET['id'])) {
                 getThesis($pdo, intval($_GET['id']));
             } elseif ($action === 'filters') {
                 getFilterOptions($pdo);
@@ -27,16 +36,18 @@ try {
             if (isset($_GET['id'])) {
                 deleteThesis($pdo, intval($_GET['id']));
             } else {
-                respond(400, ['error' => 'ID is required']);
+                respond(400, ['success' => false, 'error' => 'ID is required']);
             }
             break;
         default:
-            respond(405, ['error' => 'Method not allowed']);
+            respond(405, ['success' => false, 'error' => 'Method not allowed']);
     }
 } catch (PDOException $e) {
-    respond(500, ['error' => 'Database error']);
+    error_log('DB Error: ' . $e->getMessage());
+    respond(500, ['success' => false, 'error' => 'A database error occurred']);
 } catch (Exception $e) {
-    respond(500, ['error' => $e->getMessage()]);
+    error_log('App Error: ' . $e->getMessage());
+    respond(500, ['success' => false, 'error' => $e->getMessage()]);
 }
 
 /* ===== Helpers ===== */
@@ -47,13 +58,19 @@ function respond($code, $data) {
     exit;
 }
 
-function handleUpload() {
+function handleBlobUpload() {
     if (!isset($_FILES['front_page']) || $_FILES['front_page']['error'] === UPLOAD_ERR_NO_FILE) {
         return null;
     }
     $file = $_FILES['front_page'];
     if ($file['error'] !== UPLOAD_ERR_OK) {
         throw new Exception('File upload failed');
+    }
+
+    /* SEC-5: Enforce 5 MB max file size */
+    $maxSize = 5 * 1024 * 1024; // 5 MB
+    if ($file['size'] > $maxSize) {
+        throw new Exception('File too large. Maximum size is 5 MB');
     }
 
     $allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -64,35 +81,12 @@ function handleUpload() {
         throw new Exception('Invalid file type. Allowed: JPEG, PNG, WebP, GIF');
     }
 
-    if ($file['size'] > 10 * 1024 * 1024) {
-        throw new Exception('File too large. Max: 10 MB');
+    $data = file_get_contents($file['tmp_name']);
+    if ($data === false) {
+        throw new Exception('Failed to read uploaded file');
     }
 
-    $ext = match ($mime) {
-        'image/jpeg' => 'jpg',
-        'image/png'  => 'png',
-        'image/webp' => 'webp',
-        'image/gif'  => 'gif',
-        default      => 'jpg'
-    };
-    $filename = uniqid('thesis_', true) . '.' . $ext;
-    $uploadDir = __DIR__ . '/../uploads/';
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
-    }
-    if (!move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
-        throw new Exception('Failed to save file');
-    }
-    return 'uploads/' . $filename;
-}
-
-function deleteFile($path) {
-    if ($path) {
-        $full = __DIR__ . '/../' . $path;
-        if (file_exists($full)) {
-            unlink($full);
-        }
-    }
+    return ['data' => $data, 'mime' => $mime];
 }
 
 function validateRequired($fields) {
@@ -103,8 +97,60 @@ function validateRequired($fields) {
         }
     }
     if ($missing) {
-        respond(400, ['error' => implode(', ', $missing) . ' required']);
+        respond(400, ['success' => false, 'error' => implode(', ', $missing) . ' required']);
     }
+}
+
+/**
+ * BUG-3/BUG-4: Validate field lengths and year range.
+ */
+function validateFields($title, $adviser, $year) {
+    $errors = [];
+    if (mb_strlen($title) > 500) {
+        $errors[] = 'Title must be 500 characters or fewer';
+    }
+    if (mb_strlen($adviser) > 255) {
+        $errors[] = 'Thesis Adviser must be 255 characters or fewer';
+    }
+    $yearInt = intval($year);
+    if ($yearInt < 1900 || $yearInt > 2099) {
+        $errors[] = 'Year must be between 1900 and 2099';
+    }
+    if ($errors) {
+        respond(400, ['success' => false, 'error' => implode('; ', $errors)]);
+    }
+}
+
+/* ===== Image Serving ===== */
+
+function serveImage($pdo, $id) {
+    /* PERF-1: Use streaming to avoid loading full BLOB into PHP memory */
+    $stmt = $pdo->prepare('SELECT front_page_mime, OCTET_LENGTH(front_page_data) AS img_size FROM theses WHERE id = ? AND front_page_data IS NOT NULL');
+    $stmt->execute([$id]);
+    $meta = $stmt->fetch();
+
+    if (!$meta) {
+        http_response_code(404);
+        header('Content-Type: text/plain');
+        echo 'Image not found';
+        exit;
+    }
+
+    header('Content-Type: ' . $meta['front_page_mime']);
+    header('Content-Length: ' . $meta['img_size']);
+    header('Cache-Control: public, max-age=86400');
+
+    /* Stream in chunks via PDO::PARAM_LOB */
+    $stmt2 = $pdo->prepare('SELECT front_page_data FROM theses WHERE id = ?');
+    $stmt2->execute([$id]);
+    $stmt2->bindColumn(1, $lob, PDO::PARAM_LOB);
+    $stmt2->fetch(PDO::FETCH_BOUND);
+    if (is_resource($lob)) {
+        fpassthru($lob);
+    } else {
+        echo $lob;
+    }
+    exit;
 }
 
 /* ===== CRUD ===== */
@@ -191,13 +237,14 @@ function listTheses($pdo) {
     $page   = min($page, $totalPages);
     $offset = ($page - 1) * $perPage;
 
-    /* Select */
-    $cols = "id, title, front_page, year, proponents, panelists, thesis_adviser, created_at $extraSelect";
+    /* Select — exclude BLOB, include has_front_page flag */
+    $cols = "id, title, (front_page_data IS NOT NULL) AS has_front_page, year, proponents, panelists, thesis_adviser, created_at $extraSelect";
     $allParams = array_merge($extraSelectParams, $whereParams);
     $stmt = $pdo->prepare("SELECT $cols FROM theses $where ORDER BY $orderBy LIMIT $perPage OFFSET $offset");
     $stmt->execute($allParams);
 
     respond(200, [
+        'success' => true,
         'data' => $stmt->fetchAll(),
         'pagination' => [
             'current_page' => $page,
@@ -209,43 +256,52 @@ function listTheses($pdo) {
 }
 
 function getThesis($pdo, $id) {
-    $stmt = $pdo->prepare('SELECT * FROM theses WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, title, abstract, (front_page_data IS NOT NULL) AS has_front_page, year, proponents, panelists, thesis_adviser, created_at, updated_at FROM theses WHERE id = ?');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     if (!$row) {
-        respond(404, ['error' => 'Thesis not found']);
+        respond(404, ['success' => false, 'error' => 'Thesis not found']);
     }
-    respond(200, ['data' => $row]);
+    respond(200, ['success' => true, 'data' => $row]);
 }
 
 function getFilterOptions($pdo) {
     $years    = $pdo->query('SELECT DISTINCT year FROM theses ORDER BY year DESC')->fetchAll(PDO::FETCH_COLUMN);
     $advisers = $pdo->query('SELECT DISTINCT thesis_adviser FROM theses ORDER BY thesis_adviser ASC')->fetchAll(PDO::FETCH_COLUMN);
-    respond(200, ['years' => $years, 'advisers' => $advisers]);
+    respond(200, ['success' => true, 'years' => $years, 'advisers' => $advisers]);
 }
 
 function createThesis($pdo) {
-    validateRequired([
-        'Title'          => $_POST['title'] ?? '',
-        'Abstract'       => $_POST['abstract'] ?? '',
-        'Year'           => $_POST['year'] ?? '',
-        'Proponents'     => $_POST['proponents'] ?? '',
-        'Panelists'      => $_POST['panelists'] ?? '',
-        'Thesis Adviser' => $_POST['thesis_adviser'] ?? ''
-    ]);
+    $title   = trim($_POST['title'] ?? '');
+    $abstract = trim($_POST['abstract'] ?? '');
+    $year    = $_POST['year'] ?? '';
+    $proponents = trim($_POST['proponents'] ?? '');
+    $panelists  = trim($_POST['panelists'] ?? '');
+    $adviser = trim($_POST['thesis_adviser'] ?? '');
 
-    $frontPage = handleUpload();
+    validateRequired([
+        'Title'          => $title,
+        'Abstract'       => $abstract,
+        'Year'           => $year,
+        'Proponents'     => $proponents,
+        'Panelists'      => $panelists,
+        'Thesis Adviser' => $adviser
+    ]);
+    validateFields($title, $adviser, $year);
+
+    $blob = handleBlobUpload();
     $stmt = $pdo->prepare(
-        'INSERT INTO theses (title, abstract, front_page, year, proponents, panelists, thesis_adviser) VALUES (?,?,?,?,?,?,?)'
+        'INSERT INTO theses (title, abstract, front_page_data, front_page_mime, year, proponents, panelists, thesis_adviser) VALUES (?,?,?,?,?,?,?,?)'
     );
     $stmt->execute([
-        trim($_POST['title']),
-        trim($_POST['abstract']),
-        $frontPage,
-        intval($_POST['year']),
-        trim($_POST['proponents']),
-        trim($_POST['panelists']),
-        trim($_POST['thesis_adviser'])
+        $title,
+        $abstract,
+        $blob ? $blob['data'] : null,
+        $blob ? $blob['mime'] : null,
+        intval($year),
+        $proponents,
+        $panelists,
+        $adviser
     ]);
     getThesis($pdo, intval($pdo->lastInsertId()));
 }
@@ -253,63 +309,91 @@ function createThesis($pdo) {
 function updateThesis($pdo) {
     $id = intval($_POST['id'] ?? 0);
     if ($id <= 0) {
-        respond(400, ['error' => 'Valid ID is required']);
+        respond(400, ['success' => false, 'error' => 'Valid ID is required']);
     }
 
-    $stmt = $pdo->prepare('SELECT * FROM theses WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, (front_page_data IS NOT NULL) AS has_front_page FROM theses WHERE id = ?');
     $stmt->execute([$id]);
     $existing = $stmt->fetch();
     if (!$existing) {
-        respond(404, ['error' => 'Thesis not found']);
+        respond(404, ['success' => false, 'error' => 'Thesis not found']);
     }
+
+    $title   = trim($_POST['title'] ?? '');
+    $abstract = trim($_POST['abstract'] ?? '');
+    $year    = $_POST['year'] ?? '';
+    $proponents = trim($_POST['proponents'] ?? '');
+    $panelists  = trim($_POST['panelists'] ?? '');
+    $adviser = trim($_POST['thesis_adviser'] ?? '');
 
     validateRequired([
-        'Title'          => $_POST['title'] ?? '',
-        'Abstract'       => $_POST['abstract'] ?? '',
-        'Year'           => $_POST['year'] ?? '',
-        'Proponents'     => $_POST['proponents'] ?? '',
-        'Panelists'      => $_POST['panelists'] ?? '',
-        'Thesis Adviser' => $_POST['thesis_adviser'] ?? ''
+        'Title'          => $title,
+        'Abstract'       => $abstract,
+        'Year'           => $year,
+        'Proponents'     => $proponents,
+        'Panelists'      => $panelists,
+        'Thesis Adviser' => $adviser
     ]);
+    validateFields($title, $adviser, $year);
 
-    $frontPage = handleUpload();
+    $blob = handleBlobUpload();
+    $removeImage = isset($_POST['remove_image']) && $_POST['remove_image'] === '1';
 
-    if ($frontPage !== null) {
-        deleteFile($existing['front_page']);
+    if ($blob) {
+        /* New image uploaded — replace */
+        $stmt = $pdo->prepare(
+            'UPDATE theses SET title=?, abstract=?, front_page_data=?, front_page_mime=?, year=?, proponents=?, panelists=?, thesis_adviser=? WHERE id=?'
+        );
+        $stmt->execute([
+            $title,
+            $abstract,
+            $blob['data'],
+            $blob['mime'],
+            intval($year),
+            $proponents,
+            $panelists,
+            $adviser,
+            $id
+        ]);
+    } elseif ($removeImage) {
+        /* Remove existing image */
+        $stmt = $pdo->prepare(
+            'UPDATE theses SET title=?, abstract=?, front_page_data=NULL, front_page_mime=NULL, year=?, proponents=?, panelists=?, thesis_adviser=? WHERE id=?'
+        );
+        $stmt->execute([
+            $title,
+            $abstract,
+            intval($year),
+            $proponents,
+            $panelists,
+            $adviser,
+            $id
+        ]);
     } else {
-        $frontPage = $existing['front_page'];
+        /* Keep existing image — don't touch BLOB columns */
+        $stmt = $pdo->prepare(
+            'UPDATE theses SET title=?, abstract=?, year=?, proponents=?, panelists=?, thesis_adviser=? WHERE id=?'
+        );
+        $stmt->execute([
+            $title,
+            $abstract,
+            intval($year),
+            $proponents,
+            $panelists,
+            $adviser,
+            $id
+        ]);
     }
-
-    if (isset($_POST['remove_image']) && $_POST['remove_image'] === '1') {
-        deleteFile($existing['front_page']);
-        $frontPage = null;
-    }
-
-    $stmt = $pdo->prepare(
-        'UPDATE theses SET title=?, abstract=?, front_page=?, year=?, proponents=?, panelists=?, thesis_adviser=? WHERE id=?'
-    );
-    $stmt->execute([
-        trim($_POST['title']),
-        trim($_POST['abstract']),
-        $frontPage,
-        intval($_POST['year']),
-        trim($_POST['proponents']),
-        trim($_POST['panelists']),
-        trim($_POST['thesis_adviser']),
-        $id
-    ]);
     getThesis($pdo, $id);
 }
 
 function deleteThesis($pdo, $id) {
-    $stmt = $pdo->prepare('SELECT front_page FROM theses WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id FROM theses WHERE id = ?');
     $stmt->execute([$id]);
-    $row = $stmt->fetch();
-    if (!$row) {
-        respond(404, ['error' => 'Thesis not found']);
+    if (!$stmt->fetch()) {
+        respond(404, ['success' => false, 'error' => 'Thesis not found']);
     }
 
-    deleteFile($row['front_page']);
     $pdo->prepare('DELETE FROM theses WHERE id = ?')->execute([$id]);
-    respond(200, ['message' => 'Thesis deleted']);
+    respond(200, ['success' => true, 'message' => 'Thesis deleted']);
 }

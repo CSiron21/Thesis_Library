@@ -21,8 +21,8 @@
     /* Slate 800 */
     --text-secondary: #475569;
     /* Slate 600 */
-    --text-muted: #94a3b8;
-    /* Slate 400 */
+    --text-muted: #64748b;
+    /* Slate 500 — 4.6:1 contrast on white for WCAG AA */
 
     --accent: var(--hau-maroon);
     --accent-hover: var(--hau-maroon-light);
@@ -119,6 +119,12 @@ img {
     max-width: 1400px;
     padding: 0 32px;
     margin: 0 auto;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .logo {
@@ -1006,6 +1012,30 @@ img {
     display: none !important;
 }
 
+/* ===== Inline Form Errors (A11Y-3) ===== */
+.input-error {
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.field-error {
+    color: var(--danger);
+    font-size: 0.78rem;
+    font-weight: 500;
+    margin-top: 4px;
+}
+
+/* ===== Name Lists (BUG-5) ===== */
+.name-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.name-list li {
+    padding: 2px 0;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 1024px) {
     .thesis-grid {
@@ -1027,6 +1057,11 @@ img {
     }
 
     .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    /* MQ-4: Responsive form modal layout */
+    .form-grid {
         grid-template-columns: 1fr;
     }
 

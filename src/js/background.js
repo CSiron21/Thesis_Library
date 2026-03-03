@@ -7,6 +7,7 @@ class LavalampBackground {
         this.ctx = this.canvas.getContext('2d');
         this.blobs = [];
         this.mouse = { x: null, y: null };
+        this.paused = false;
         this.config = {
             blobCount: 3, // Reduced for a cleaner look
             colors: [
@@ -48,6 +49,15 @@ class LavalampBackground {
         window.addEventListener('mousemove', (e) => {
             this.mouse.x = e.x;
             this.mouse.y = e.y;
+        });
+        /* PERF-3: Pause when tab hidden */
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.paused = true;
+            } else {
+                this.paused = false;
+                this.animate();
+            }
         });
     }
 
@@ -97,6 +107,7 @@ class LavalampBackground {
     }
 
     animate() {
+        if (this.paused) return;
         this.draw();
         requestAnimationFrame(() => this.animate());
     }

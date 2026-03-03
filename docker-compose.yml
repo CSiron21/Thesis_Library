@@ -16,6 +16,7 @@ services:
 
   db:
     image: mysql:8.0
+    command: --max-allowed-packet=67108864
     environment:
       MYSQL_ROOT_PASSWORD: thesis_root_pass
       MYSQL_DATABASE: thesis_library
