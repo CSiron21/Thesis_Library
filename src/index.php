@@ -1,12 +1,12 @@
-<?php require_once __DIR__ . '/config/db.php'; ?>
+﻿<?php require_once __DIR__ . '/config/db.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= htmlspecialchars(csrfToken()) ?>">
-    <title>Thesis Library</title>
-    <meta name="description" content="Thesis Library – search, browse, and manage academic theses.">
+    <title>Thesis Repository</title>
+    <meta name="description" content="Thesis Repository – search, browse, and manage academic theses.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -18,75 +18,117 @@
 
 <!-- ===== Header ===== -->
 <header class="header">
-    <div class="container header-inner">
-        <h1 class="logo"><span class="logo-icon">📚</span> Thesis Library</h1>
+    <div class="header-inner">
+        <h1 class="logo"><span class="logo-icon">📚</span> Thesis Repository </h1>
         <div class="header-actions">
             <button class="btn btn-outline btn-sm" id="backupBtn" title="Download database backup">⬇ Backup</button>
             <button class="btn btn-outline btn-sm" id="restoreBtn" title="Restore database from backup">⬆ Restore</button>
             <input type="file" id="restoreFileInput" accept=".sql" class="hidden">
-            <button class="btn btn-primary" id="addBtn">+ Add Thesis</button>
+            <button class="btn btn-primary" id="addBtn">+ Add</button>
         </div>
     </div>
 </header>
 
-<!-- ===== Main ===== -->
-<main class="container main">
+<!-- ===== Main Layout: Sidebar + Content ===== -->
+<div class="main-layout">
 
-    <!-- Search -->
-    <section class="search-section">
+    <!-- ===== Sidebar ===== -->
+    <aside class="sidebar">
+        <div class="sidebar-inner">
+
+            <div class="sidebar-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                <span>FILTERS</span>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-label">Year Range</div>
+                <div class="sidebar-year-row">
+                    <div class="filter-group">
+                        <label for="yearFrom">From</label>
+                        <input type="number" id="yearFrom" min="1900" max="2099" placeholder="2020">
+                    </div>
+                    <div class="filter-group">
+                        <label for="yearTo">To</label>
+                        <input type="number" id="yearTo" min="1900" max="2099" placeholder="2025">
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-label">Thesis Adviser</div>
+                <div class="filter-group">
+                    <select id="adviserFilter"><option value="">All Advisers</option></select>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-label">Proponent</div>
+                <div class="filter-group">
+                    <input type="text" id="proponentFilter" placeholder="Search by name…">
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-label">Panelist</div>
+                <div class="filter-group">
+                    <input type="text" id="panelistFilter" placeholder="Search by name…">
+                </div>
+            </div>
+
+            <div class="sidebar-actions">
+                <button class="btn btn-sm btn-primary" id="applyFilters">Apply Filters</button>
+                <button class="btn btn-sm btn-ghost" id="clearFilters">Clear All</button>
+            </div>
+
+        </div>
+    </aside>
+
+    <!-- ===== Content Area ===== -->
+    <main class="content-area">
+
+        <!-- Search Bar -->
         <div class="search-row">
             <div class="search-bar">
                 <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input type="text" id="searchInput" class="search-input" placeholder="Search by title or abstract…" autocomplete="off" aria-label="Search theses">
             </div>
-            <button class="btn btn-outline" id="toggleFilters">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                Filters
-            </button>
         </div>
 
-        <!-- Advanced Filters -->
-        <div id="filtersPanel" class="filters-panel hidden">
-            <div class="filters-grid">
-                <div class="filter-group">
-                    <label for="yearFrom">Year From</label>
-                    <input type="number" id="yearFrom" min="1900" max="2099" placeholder="e.g. 2020">
+        <!-- Toolbar: result count + sort + view toggle -->
+        <div class="toolbar-bar">
+            <span id="resultCount">Loading…</span>
+            <div class="toolbar-right">
+                <label class="sort-label" for="sortSelect">Sort by</label>
+                <select id="sortSelect" class="sort-select">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="title_asc">Title A → Z</option>
+                    <option value="title_desc">Title Z → A</option>
+                </select>
+                <div class="view-toggle">
+                    <button class="btn btn-icon active" id="viewGridMode" aria-label="Grid View" title="Grid View">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </button>
+                    <button class="btn btn-icon btn-ghost" id="viewListMode" aria-label="List View" title="List View">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    </button>
                 </div>
-                <div class="filter-group">
-                    <label for="yearTo">Year To</label>
-                    <input type="number" id="yearTo" min="1900" max="2099" placeholder="e.g. 2025">
-                </div>
-                <div class="filter-group">
-                    <label for="adviserFilter">Thesis Adviser</label>
-                    <select id="adviserFilter"><option value="">All Advisers</option></select>
-                </div>
-                <div class="filter-group">
-                    <label for="proponentFilter">Proponent</label>
-                    <input type="text" id="proponentFilter" placeholder="Name…">
-                </div>
-                <div class="filter-group">
-                    <label for="panelistFilter">Panelist</label>
-                    <input type="text" id="panelistFilter" placeholder="Name…">
-                </div>
-            </div>
-            <div class="filters-actions">
-                <button class="btn btn-sm btn-primary" id="applyFilters">Apply Filters</button>
-                <button class="btn btn-sm btn-ghost" id="clearFilters">Clear All</button>
             </div>
         </div>
-    </section>
 
-    <!-- Results Info -->
-    <div class="results-bar">
-        <span id="resultCount">Loading…</span>
-    </div>
+        <!-- Active Filter Chips -->
+        <div id="activeFilters" class="active-filters"></div>
 
-    <!-- Thesis Grid -->
-    <section id="thesisGrid" class="thesis-grid"></section>
+        <!-- Thesis Grid -->
+        <section id="thesisGrid" class="thesis-grid"></section>
 
-    <!-- Pagination -->
-    <nav id="pagination" class="pagination"></nav>
-</main>
+        <!-- Pagination -->
+        <nav id="pagination" class="pagination"></nav>
+
+    </main>
+
+</div><!-- /main-layout -->
 
 <!-- ===== Add / Edit Modal ===== -->
 <div id="formModal" class="modal hidden" role="dialog" aria-labelledby="modalTitle">
