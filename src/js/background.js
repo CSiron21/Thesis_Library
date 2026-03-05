@@ -9,12 +9,10 @@ class LavalampBackground {
         this.mouse = { x: null, y: null };
         this.paused = false;
         this.config = {
-            blobCount: 3, // Reduced for a cleaner look
+            blobCount: 2, // Reduced for a cleaner look
             colors: [
-                'rgba(128, 0, 0, 0.08)',   // HAU Maroon, very faint
-                'rgba(255, 215, 0, 0.05)',  // HAU Gold, very faint
-                'rgba(160, 0, 0, 0.05)',    // Light Maroon, very faint
-                'rgba(100, 0, 0, 0.08)'    // Dark Maroon, very faint
+                'rgba(128, 0, 0, 0.02)',   // HAU Maroon, very faint
+                'rgba(255, 215, 0, 0.015)'  // HAU Gold, extremely faint
             ]
         };
 

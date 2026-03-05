@@ -3,6 +3,7 @@ const state = {
     page: 1,
     perPage: 12,
     search: '',
+    sort: 'newest',
     filters: { yearFrom: '', yearTo: '', adviser: '', proponent: '', panelist: '' },
     viewingId: null,
     deletingId: null,
@@ -20,8 +21,9 @@ const searchInput = $('#searchInput');
 const thesisGrid = $('#thesisGrid');
 const pagination = $('#pagination');
 const resultCount = $('#resultCount');
-const filtersPanel = $('#filtersPanel');
-const toggleFiltersBtn = $('#toggleFilters');
+const filtersPanel = null; // Sidebar: filters always visible
+const toggleFiltersBtn = null;
+let currentViewMode = localStorage.getItem('thesisViewMode') || 'grid';
 
 const formModal = $('#formModal');
 const viewModal = $('#viewModal');
@@ -39,9 +41,14 @@ const removeImgBtn = $('#removeImgBtn');
 /* ===== Init ===== */
 document.addEventListener('DOMContentLoaded', async () => {
     await loadCsrfToken();
+    // Resolve view toggle refs now that DOM exists
+    const viewGridMode = $('#viewGridMode');
+    const viewListMode = $('#viewListMode');
+    setViewMode(currentViewMode, viewGridMode, viewListMode);
     fetchTheses();
     loadFilterOptions();
-    bindEvents();
+    bindEvents(viewGridMode, viewListMode);
+    renderActiveFilters();
 });
 
 /* ===== CSRF ===== */
@@ -64,21 +71,32 @@ function csrfHeaders() {
 }
 
 /* ===== Event Binding ===== */
-function bindEvents() {
+function bindEvents(viewGridMode, viewListMode) {
     searchInput.addEventListener('input', debounce(() => {
         state.search = searchInput.value;
         state.page = 1;
         fetchTheses();
     }, 300));
 
-    toggleFiltersBtn.addEventListener('click', () => {
-        filtersPanel.classList.toggle('hidden');
-    });
+    // No toggle filter button in sidebar layout
 
     $('#applyFilters').addEventListener('click', applyFilters);
     $('#clearFilters').addEventListener('click', clearFilters);
     $('#addBtn').addEventListener('click', openAddModal);
     thesisForm.addEventListener('submit', handleFormSubmit);
+
+    if (viewGridMode) viewGridMode.addEventListener('click', () => setViewMode('grid', viewGridMode, viewListMode));
+    if (viewListMode) viewListMode.addEventListener('click', () => setViewMode('list', viewGridMode, viewListMode));
+
+    const sortSelect = $('#sortSelect');
+    if (sortSelect) {
+        sortSelect.value = state.sort;
+        sortSelect.addEventListener('change', () => {
+            state.sort = sortSelect.value;
+            state.page = 1;
+            fetchTheses();
+        });
+    }
 
     /* Backup / Restore */
     $('#backupBtn').addEventListener('click', backupDatabase);
@@ -118,13 +136,33 @@ function bindEvents() {
     });
 }
 
+function setViewMode(mode, viewGridMode, viewListMode) {
+    currentViewMode = mode;
+    localStorage.setItem('thesisViewMode', mode);
+    if (!viewGridMode || !viewListMode) return;
+    if (mode === 'list') {
+        thesisGrid.classList.add('list-view');
+        viewListMode.classList.add('active');
+        viewListMode.classList.remove('btn-ghost');
+        viewGridMode.classList.remove('active');
+        viewGridMode.classList.add('btn-ghost');
+    } else {
+        thesisGrid.classList.remove('list-view');
+        viewGridMode.classList.add('active');
+        viewGridMode.classList.remove('btn-ghost');
+        viewListMode.classList.remove('active');
+        viewListMode.classList.add('btn-ghost');
+    }
+}
+
 /* ===== API Calls ===== */
 async function fetchTheses() {
     showLoading();
     const params = new URLSearchParams({
         page: state.page,
         per_page: state.perPage,
-        search: state.search
+        search: state.search,
+        sort: state.sort
     });
     const f = state.filters;
     if (f.yearFrom) params.set('year_from', f.yearFrom);
@@ -171,7 +209,24 @@ async function loadFilterOptions() {
 
 /* ===== Rendering ===== */
 function showLoading() {
-    thesisGrid.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    let skeletonsHtml = '';
+    for (let i = 0; i < 4; i++) {
+        skeletonsHtml += `
+            <div class="card-skeleton">
+                <div class="skeleton-thumb skeleton-pulse"></div>
+                <div class="skeleton-body">
+                    <div class="skeleton-line title skeleton-pulse"></div>
+                    <div class="skeleton-line meta skeleton-pulse"></div>
+                    <div class="skeleton-line meta skeleton-pulse" style="width: 70%;"></div>
+                    <div style="display: flex; gap: 8px; margin-top: auto;">
+                        <div class="skeleton-line action skeleton-pulse" style="flex:2"></div>
+                        <div class="skeleton-line action skeleton-pulse" style="flex:1"></div>
+                        <div class="skeleton-line action skeleton-pulse" style="flex:1"></div>
+                    </div>
+                </div>
+            </div>`;
+    }
+    thesisGrid.innerHTML = skeletonsHtml;
 }
 
 function renderGrid(theses) {
@@ -224,9 +279,13 @@ function cardHtml(t) {
             </div>
             <div class="card-spacer"></div>
             <div class="card-actions">
-                <button class="btn btn-sm btn-outline btn-view" data-id="${t.id}">View</button>
-                <button class="btn btn-sm btn-ghost btn-edit" data-id="${t.id}">Edit</button>
-                <button class="btn btn-sm btn-ghost btn-del" data-id="${t.id}" style="color:var(--danger)">Del</button>
+                <button class="btn btn-sm btn-primary-light btn-view" data-id="${t.id}" style="flex: 1; justify-content: center;">View Details</button>
+                <button class="btn btn-sm btn-ghost btn-icon btn-edit" data-id="${t.id}" aria-label="Edit" title="Edit">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
+                <button class="btn btn-sm btn-ghost btn-icon btn-del" data-id="${t.id}" aria-label="Delete" title="Delete" style="color:var(--danger)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
             </div>
         </div>
     </article>`;
@@ -236,7 +295,7 @@ function renderPagination(p) {
     if (p.total_pages <= 1) { pagination.innerHTML = ''; return; }
 
     let html = '';
-    html += `<button class="page-btn" data-page="${p.current_page - 1}" ${p.current_page <= 1 ? 'disabled' : ''} aria-label="Previous page">&laquo;</button>`;
+    html += `<button class="page-btn" data-page="${p.current_page - 1}" ${p.current_page <= 1 ? 'disabled' : ''} aria-label="Previous page">Previous</button>`;
 
     const pages = getPageRange(p.current_page, p.total_pages);
     pages.forEach(pg => {
@@ -247,7 +306,7 @@ function renderPagination(p) {
         }
     });
 
-    html += `<button class="page-btn" data-page="${p.current_page + 1}" ${p.current_page >= p.total_pages ? 'disabled' : ''} aria-label="Next page">&raquo;</button>`;
+    html += `<button class="page-btn" data-page="${p.current_page + 1}" ${p.current_page >= p.total_pages ? 'disabled' : ''} aria-label="Next page">Next</button>`;
     pagination.innerHTML = html;
 
     pagination.querySelectorAll('.page-btn').forEach(btn => {
@@ -284,6 +343,7 @@ function applyFilters() {
     state.filters.panelist = $('#panelistFilter').value;
     state.page = 1;
     fetchTheses();
+    renderActiveFilters();
 }
 
 function clearFilters() {
@@ -295,10 +355,50 @@ function clearFilters() {
     state.filters = { yearFrom: '', yearTo: '', adviser: '', proponent: '', panelist: '' };
     state.page = 1;
     fetchTheses();
+    renderActiveFilters();
 }
 
 function hasActiveFilters() {
     return Object.values(state.filters).some(v => v !== '');
+}
+
+function renderActiveFilters() {
+    const container = $('#activeFilters');
+    if (!container) return;
+
+    const active = [];
+    if (state.filters.yearFrom) active.push({ key: 'yearFrom', label: `From: ${state.filters.yearFrom}` });
+    if (state.filters.yearTo) active.push({ key: 'yearTo', label: `To: ${state.filters.yearTo}` });
+    if (state.filters.adviser) active.push({ key: 'adviser', label: `Adviser: ${state.filters.adviser}` });
+    if (state.filters.proponent) active.push({ key: 'proponent', label: `Proponent: ${state.filters.proponent}` });
+    if (state.filters.panelist) active.push({ key: 'panelist', label: `Panelist: ${state.filters.panelist}` });
+
+    if (!active.length) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = active.map(f => `
+        <div class="filter-chip">
+            ${escapeHtml(f.label)}
+            <button class="filter-chip-remove" data-key="${f.key}" aria-label="Remove filter">&times;</button>
+        </div>
+    `).join('') + '<button class="btn btn-ghost btn-sm" id="clearChipsBtn" style="border:none; box-shadow:none; padding:4px 8px;">Clear All</button>';
+
+    container.querySelectorAll('.filter-chip-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const k = e.currentTarget.dataset.key;
+            state.filters[k] = '';
+            const inputMap = { yearFrom: 'yearFrom', yearTo: 'yearTo', adviser: 'adviserFilter', proponent: 'proponentFilter', panelist: 'panelistFilter' };
+            const el = $(`#${inputMap[k]}`);
+            if (el) el.value = '';
+            state.page = 1;
+            fetchTheses();
+            renderActiveFilters();
+        });
+    });
+
+    $('#clearChipsBtn').addEventListener('click', clearFilters);
 }
 
 /* ===== Add / Edit Modal ===== */

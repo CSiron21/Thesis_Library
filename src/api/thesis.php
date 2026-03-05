@@ -15,50 +15,60 @@ try {
         case 'GET':
             if ($action === 'image' && isset($_GET['id'])) {
                 serveImage($pdo, intval($_GET['id']));
-            } elseif ($action === 'csrf') {
+            }
+            elseif ($action === 'csrf') {
                 respond(200, ['success' => true, 'data' => ['token' => csrfToken()]]);
-            } elseif (isset($_GET['id'])) {
+            }
+            elseif (isset($_GET['id'])) {
                 getThesis($pdo, intval($_GET['id']));
-            } elseif ($action === 'filters') {
+            }
+            elseif ($action === 'filters') {
                 getFilterOptions($pdo);
-            } else {
+            }
+            else {
                 listTheses($pdo);
             }
             break;
         case 'POST':
             if ($action === 'update') {
                 updateThesis($pdo);
-            } else {
+            }
+            else {
                 createThesis($pdo);
             }
             break;
         case 'DELETE':
             if (isset($_GET['id'])) {
                 deleteThesis($pdo, intval($_GET['id']));
-            } else {
+            }
+            else {
                 respond(400, ['success' => false, 'error' => 'ID is required']);
             }
             break;
         default:
             respond(405, ['success' => false, 'error' => 'Method not allowed']);
     }
-} catch (PDOException $e) {
+}
+catch (PDOException $e) {
     error_log('DB Error: ' . $e->getMessage());
     respond(500, ['success' => false, 'error' => 'A database error occurred']);
-} catch (Exception $e) {
+}
+catch (Exception $e) {
     error_log('App Error: ' . $e->getMessage());
     respond(500, ['success' => false, 'error' => $e->getMessage()]);
 }
 
 /* ===== Helpers ===== */
 
-function respond($code, $data) {
+function respond($code, $data)
+{
     http_response_code($code);
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-function handleBlobUpload() {
+function handleBlobUpload()
+{
     if (!isset($_FILES['front_page']) || $_FILES['front_page']['error'] === UPLOAD_ERR_NO_FILE) {
         return null;
     }
@@ -89,7 +99,8 @@ function handleBlobUpload() {
     return ['data' => $data, 'mime' => $mime];
 }
 
-function validateRequired($fields) {
+function validateRequired($fields)
+{
     $missing = [];
     foreach ($fields as $label => $value) {
         if (trim($value ?? '') === '') {
@@ -104,7 +115,8 @@ function validateRequired($fields) {
 /**
  * BUG-3/BUG-4: Validate field lengths and year range.
  */
-function validateFields($title, $adviser, $year) {
+function validateFields($title, $adviser, $year)
+{
     $errors = [];
     if (mb_strlen($title) > 500) {
         $errors[] = 'Title must be 500 characters or fewer';
@@ -123,7 +135,8 @@ function validateFields($title, $adviser, $year) {
 
 /* ===== Image Serving ===== */
 
-function serveImage($pdo, $id) {
+function serveImage($pdo, $id)
+{
     /* PERF-1: Use streaming to avoid loading full BLOB into PHP memory */
     $stmt = $pdo->prepare('SELECT front_page_mime, OCTET_LENGTH(front_page_data) AS img_size FROM theses WHERE id = ? AND front_page_data IS NOT NULL');
     $stmt->execute([$id]);
@@ -147,7 +160,8 @@ function serveImage($pdo, $id) {
     $stmt2->fetch(PDO::FETCH_BOUND);
     if (is_resource($lob)) {
         fpassthru($lob);
-    } else {
+    }
+    else {
         echo $lob;
     }
     exit;
@@ -155,22 +169,32 @@ function serveImage($pdo, $id) {
 
 /* ===== CRUD ===== */
 
-function listTheses($pdo) {
-    $page    = max(1, intval($_GET['page'] ?? 1));
+function listTheses($pdo)
+{
+    $page = max(1, intval($_GET['page'] ?? 1));
     $perPage = max(1, min(50, intval($_GET['per_page'] ?? 12)));
-    $search  = trim($_GET['search'] ?? '');
+    $search = trim($_GET['search'] ?? '');
 
-    $yearFrom  = $_GET['year_from'] ?? '';
-    $yearTo    = $_GET['year_to'] ?? '';
-    $adviser   = trim($_GET['adviser'] ?? '');
+    $yearFrom = $_GET['year_from'] ?? '';
+    $yearTo = $_GET['year_to'] ?? '';
+    $adviser = trim($_GET['adviser'] ?? '');
     $proponent = trim($_GET['proponent'] ?? '');
-    $panelist  = trim($_GET['panelist'] ?? '');
+    $panelist = trim($_GET['panelist'] ?? '');
 
-    $whereParts  = [];
+    $whereParts = [];
     $whereParams = [];
     $extraSelect = '';
     $extraSelectParams = [];
-    $orderBy = 'year DESC, title ASC';
+
+    /* Sort order */
+    $sort = $_GET['sort'] ?? 'newest';
+    $sortMap = [
+        'newest' => 'year DESC, title ASC',
+        'oldest' => 'year ASC, title ASC',
+        'title_asc' => 'title ASC',
+        'title_desc' => 'title DESC',
+    ];
+    $orderBy = $sortMap[$sort] ?? 'year DESC, title ASC';
 
     /* Full-text / LIKE search */
     if ($search !== '') {
@@ -193,12 +217,13 @@ function listTheses($pdo) {
             $term = implode(' ', $boolTerms);
             $extraSelect = ', MATCH(title, abstract) AGAINST(? IN BOOLEAN MODE) AS relevance';
             $extraSelectParams[] = $term;
-            $whereParts[]  = 'MATCH(title, abstract) AGAINST(? IN BOOLEAN MODE)';
+            $whereParts[] = 'MATCH(title, abstract) AGAINST(? IN BOOLEAN MODE)';
             $whereParams[] = $term;
             $orderBy = 'relevance DESC, year DESC';
-        } else {
+        }
+        else {
             $like = '%' . $search . '%';
-            $whereParts[]  = '(title LIKE ? OR abstract LIKE ?)';
+            $whereParts[] = '(title LIKE ? OR abstract LIKE ?)';
             $whereParams[] = $like;
             $whereParams[] = $like;
         }
@@ -206,23 +231,23 @@ function listTheses($pdo) {
 
     /* Filters */
     if ($yearFrom !== '') {
-        $whereParts[]  = 'year >= ?';
+        $whereParts[] = 'year >= ?';
         $whereParams[] = intval($yearFrom);
     }
     if ($yearTo !== '') {
-        $whereParts[]  = 'year <= ?';
+        $whereParts[] = 'year <= ?';
         $whereParams[] = intval($yearTo);
     }
     if ($adviser !== '') {
-        $whereParts[]  = 'thesis_adviser = ?';
+        $whereParts[] = 'thesis_adviser = ?';
         $whereParams[] = $adviser;
     }
     if ($proponent !== '') {
-        $whereParts[]  = 'proponents LIKE ?';
+        $whereParts[] = 'proponents LIKE ?';
         $whereParams[] = '%' . $proponent . '%';
     }
     if ($panelist !== '') {
-        $whereParts[]  = 'panelists LIKE ?';
+        $whereParts[] = 'panelists LIKE ?';
         $whereParams[] = '%' . $panelist . '%';
     }
 
@@ -234,7 +259,7 @@ function listTheses($pdo) {
     $total = intval($countStmt->fetchColumn());
 
     $totalPages = max(1, (int)ceil($total / $perPage));
-    $page   = min($page, $totalPages);
+    $page = min($page, $totalPages);
     $offset = ($page - 1) * $perPage;
 
     /* Select — exclude BLOB, include has_front_page flag */
@@ -248,14 +273,15 @@ function listTheses($pdo) {
         'data' => $stmt->fetchAll(),
         'pagination' => [
             'current_page' => $page,
-            'total_pages'  => $totalPages,
-            'per_page'     => $perPage,
-            'total'        => $total
+            'total_pages' => $totalPages,
+            'per_page' => $perPage,
+            'total' => $total
         ]
     ]);
 }
 
-function getThesis($pdo, $id) {
+function getThesis($pdo, $id)
+{
     $stmt = $pdo->prepare('SELECT id, title, abstract, (front_page_data IS NOT NULL) AS has_front_page, year, proponents, panelists, thesis_adviser, created_at, updated_at FROM theses WHERE id = ?');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
@@ -265,26 +291,28 @@ function getThesis($pdo, $id) {
     respond(200, ['success' => true, 'data' => $row]);
 }
 
-function getFilterOptions($pdo) {
-    $years    = $pdo->query('SELECT DISTINCT year FROM theses ORDER BY year DESC')->fetchAll(PDO::FETCH_COLUMN);
+function getFilterOptions($pdo)
+{
+    $years = $pdo->query('SELECT DISTINCT year FROM theses ORDER BY year DESC')->fetchAll(PDO::FETCH_COLUMN);
     $advisers = $pdo->query('SELECT DISTINCT thesis_adviser FROM theses ORDER BY thesis_adviser ASC')->fetchAll(PDO::FETCH_COLUMN);
     respond(200, ['success' => true, 'years' => $years, 'advisers' => $advisers]);
 }
 
-function createThesis($pdo) {
-    $title   = trim($_POST['title'] ?? '');
+function createThesis($pdo)
+{
+    $title = trim($_POST['title'] ?? '');
     $abstract = trim($_POST['abstract'] ?? '');
-    $year    = $_POST['year'] ?? '';
+    $year = $_POST['year'] ?? '';
     $proponents = trim($_POST['proponents'] ?? '');
-    $panelists  = trim($_POST['panelists'] ?? '');
+    $panelists = trim($_POST['panelists'] ?? '');
     $adviser = trim($_POST['thesis_adviser'] ?? '');
 
     validateRequired([
-        'Title'          => $title,
-        'Abstract'       => $abstract,
-        'Year'           => $year,
-        'Proponents'     => $proponents,
-        'Panelists'      => $panelists,
+        'Title' => $title,
+        'Abstract' => $abstract,
+        'Year' => $year,
+        'Proponents' => $proponents,
+        'Panelists' => $panelists,
         'Thesis Adviser' => $adviser
     ]);
     validateFields($title, $adviser, $year);
@@ -306,7 +334,8 @@ function createThesis($pdo) {
     getThesis($pdo, intval($pdo->lastInsertId()));
 }
 
-function updateThesis($pdo) {
+function updateThesis($pdo)
+{
     $id = intval($_POST['id'] ?? 0);
     if ($id <= 0) {
         respond(400, ['success' => false, 'error' => 'Valid ID is required']);
@@ -319,19 +348,19 @@ function updateThesis($pdo) {
         respond(404, ['success' => false, 'error' => 'Thesis not found']);
     }
 
-    $title   = trim($_POST['title'] ?? '');
+    $title = trim($_POST['title'] ?? '');
     $abstract = trim($_POST['abstract'] ?? '');
-    $year    = $_POST['year'] ?? '';
+    $year = $_POST['year'] ?? '';
     $proponents = trim($_POST['proponents'] ?? '');
-    $panelists  = trim($_POST['panelists'] ?? '');
+    $panelists = trim($_POST['panelists'] ?? '');
     $adviser = trim($_POST['thesis_adviser'] ?? '');
 
     validateRequired([
-        'Title'          => $title,
-        'Abstract'       => $abstract,
-        'Year'           => $year,
-        'Proponents'     => $proponents,
-        'Panelists'      => $panelists,
+        'Title' => $title,
+        'Abstract' => $abstract,
+        'Year' => $year,
+        'Proponents' => $proponents,
+        'Panelists' => $panelists,
         'Thesis Adviser' => $adviser
     ]);
     validateFields($title, $adviser, $year);
@@ -355,7 +384,8 @@ function updateThesis($pdo) {
             $adviser,
             $id
         ]);
-    } elseif ($removeImage) {
+    }
+    elseif ($removeImage) {
         /* Remove existing image */
         $stmt = $pdo->prepare(
             'UPDATE theses SET title=?, abstract=?, front_page_data=NULL, front_page_mime=NULL, year=?, proponents=?, panelists=?, thesis_adviser=? WHERE id=?'
@@ -369,7 +399,8 @@ function updateThesis($pdo) {
             $adviser,
             $id
         ]);
-    } else {
+    }
+    else {
         /* Keep existing image — don't touch BLOB columns */
         $stmt = $pdo->prepare(
             'UPDATE theses SET title=?, abstract=?, year=?, proponents=?, panelists=?, thesis_adviser=? WHERE id=?'
@@ -387,7 +418,8 @@ function updateThesis($pdo) {
     getThesis($pdo, $id);
 }
 
-function deleteThesis($pdo, $id) {
+function deleteThesis($pdo, $id)
+{
     $stmt = $pdo->prepare('SELECT id FROM theses WHERE id = ?');
     $stmt->execute([$id]);
     if (!$stmt->fetch()) {

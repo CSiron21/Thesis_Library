@@ -7,18 +7,20 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-function csrfToken(): string {
+function csrfToken(): string
+{
     return $_SESSION['csrf_token'];
 }
 
-function validateCsrf(): void {
+function validateCsrf(): void
+{
     $headerToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     $postToken = $_POST['_csrf'] ?? '';
     $token = trim($headerToken ?: $postToken);
     if (!hash_equals($_SESSION['csrf_token'], $token)) {
         http_response_code(403);
         echo json_encode([
-            'success' => false, 
+            'success' => false,
             'error' => 'Invalid or missing CSRF token',
             'debug' => [
                 'session_token_len' => strlen($_SESSION['csrf_token']),
@@ -45,12 +47,12 @@ try {
         "mysql:host={$dbConfig['host']};dbname={$dbConfig['name']};charset=utf8mb4",
         $dbConfig['user'],
         $dbConfig['pass'],
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false
-        ]
-    );
+    [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false
+    ]
+        );
 
     /* Auto-create tables on first run for zero-config deployments */
     $pdo->exec("
@@ -72,7 +74,8 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
 
-} catch (PDOException $e) {
+}
+catch (PDOException $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database connection failed']);
     exit;
