@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= htmlspecialchars(csrfToken()) ?>">
     <title>Thesis Repository</title>
-    <meta name="description" content="Thesis Repository – search, browse, and manage academic theses.">
+    <meta name="description" content="Thesis Repository â€“ search, browse, and manage academic theses.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -65,14 +65,14 @@
             <div class="sidebar-section">
                 <div class="sidebar-label">Proponent</div>
                 <div class="filter-group">
-                    <input type="text" id="proponentFilter" placeholder="Search by name…">
+                    <input type="text" id="proponentFilter" placeholder="Search by name...">
                 </div>
             </div>
 
             <div class="sidebar-section">
                 <div class="sidebar-label">Panelist</div>
                 <div class="filter-group">
-                    <input type="text" id="panelistFilter" placeholder="Search by name…">
+                    <input type="text" id="panelistFilter" placeholder="Search by name...">
                 </div>
             </div>
 
@@ -91,13 +91,13 @@
         <div class="search-row">
             <div class="search-bar">
                 <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="searchInput" class="search-input" placeholder="Search by title or abstract…" autocomplete="off" aria-label="Search theses">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search by title or abstract..." autocomplete="off" aria-label="Search theses">
             </div>
         </div>
 
         <!-- Toolbar: result count + sort + view toggle -->
         <div class="toolbar-bar">
-            <span id="resultCount">Loading…</span>
+            <span id="resultCount">Loading...</span>
             <div class="toolbar-right">
                 <label class="sort-label" for="sortSelect">Sort by</label>
                 <select id="sortSelect" class="sort-select">

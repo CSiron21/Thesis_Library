@@ -118,7 +118,7 @@ img {
     justify-content: space-between;
     gap: 16px;
     max-width: 1400px;
-    padding: 12px 32px;
+    padding: 8px 32px;
     margin: 0 auto;
 }
 
@@ -138,6 +138,20 @@ img {
     color: #fff;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     letter-spacing: -0.5px;
+}
+
+.logo-icon {
+    display: none !important;
+}
+
+.logo::before {
+    content: "";
+    display: inline-block;
+    width: 52px;
+    height: 52px;
+    background: url("../assets/soc-logo.png") no-repeat center;
+    background-size: contain;
+    vertical-align: middle;
 }
 
 .logo-img {
